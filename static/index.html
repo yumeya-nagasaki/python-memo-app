@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>学習メモアプリ</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 720px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            color: #222;
+        }
+
+        form,
+        .search-box {
+            display: grid;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        input,
+        textarea,
+        button {
+            padding: 0.6rem;
+            font-size: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+
+        button {
+            background: #0969da;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+
+        button.delete {
+            background: #cf222e;
+            padding: 0.3rem 0.7rem;
+            font-size: 0.85rem;
+        }
+
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .tag {
+            background: #ddf4ff;
+            color: #0969da;
+            padding: 0.15rem 0.5rem;
+            border-radius: 999px;
+            font-size: 0.8rem;
+        }
+
+        pre {
+            white-space: pre-wrap;
+            margin: 0.5rem 0 0;
+            font-family: inherit;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>学習メモアプリ</h1>
+
+    <form id="memo-form">
+        <input id="title" placeholder="タイトル（例：FastAPIのルーティング）" required />
+        <input id="tag" placeholder="タグ（例：Python, FastAPI）" value="Python" />
+        <textarea id="content" rows="3" placeholder="学んだことやメモ" required></textarea>
+        <button type="submit">メモを保存</button>
+    </form>
+
+    <div class="search-box">
+        <input id="search" placeholder="キーワードで絞り込み..." />
+    </div>
+
+    <div id="memo-list"></div>
+
+    <script>
+        const listEl = document.getElementById("memo-list");
+        const searchEl = document.getElementById("search");
+
+        async function loadMemos(query = "") {
+            const res = await fetch(`/api/memos?q=${encodeURIComponent(query)}`);
+            const memos = await res.json();
+            listEl.innerHTML = memos.map(m => `
+        <div class="card">
+          <div class="card-header">
+            <strong>${escapeHtml(m.title)} <span class="tag">${escapeHtml(m.tag)}</span></strong>
+            <button class="delete" onclick="deleteMemo(${m.id})">削除</button>
+          </div>
+          <pre>${escapeHtml(m.content)}</pre>
+        </div>
+      `).join("");
+        }
+
+        document.getElementById("memo-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            await fetch("/api/memos", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    title: document.getElementById("title").value,
+                    tag: document.getElementById("tag").value,
+                    content: document.getElementById("content").value,
+                }),
+            });
+            e.target.reset();
+            loadMemos(searchEl.value);
+        });
+
+        async function deleteMemo(id) {
+            await fetch(`/api/memos/${id}`, { method: "DELETE" });
+            loadMemos(searchEl.value);
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/[&<>"']/g, s => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[s]));
+        }
+
+        searchEl.addEventListener("input", (e) => loadMemos(e.target.value));
+        loadMemos();
+    </script>
+</body>
+
+</html>
